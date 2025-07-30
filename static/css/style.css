@@ -1,0 +1,324 @@
+/* --- Premium Color Palette & Root Variables --- */
+:root, [data-bs-theme="light"] {
+    --bg-color: #e9e9eb;
+    --text-color: #1d1d1f;
+    --subtle-text-color: #6e6e73;
+    --border-color: rgba(0, 0, 0, 0.1);
+    --card-bg-color: rgba(255, 255, 255, 0.6);
+    --glass-bg: rgba(255, 255, 255, 0.5);
+    --shadow-color: rgba(0, 0, 0, 0.1);
+    --success-color: #28a745;
+    --danger-color: #dc3545;
+    --info-color: #007bff;
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --bg-gradient: radial-gradient(at 0% 0%, hsla(212,100%,80%,0.3) 0px, transparent 50%),
+                   radial-gradient(at 98% 99%, hsla(288,100%,80%,0.3) 0px, transparent 50%);
+    /* NEW: Outage severity colors for heatmap */
+    --danger-color-light: #ffcdd2;
+    --danger-color-medium: #ef9a9a;
+    --danger-color-heavy: #dc3545;
+}
+[data-bs-theme="dark"] {
+    --bg-color: #161618;
+    --text-color: #f5f5f7;
+    --subtle-text-color: #8e8e93;
+    --border-color: rgba(255, 255, 255, 0.15);
+    --card-bg-color: rgba(40, 40, 40, 0.75);
+    --glass-bg: rgba(40, 40, 40, 0.5);
+    --shadow-color: rgba(0, 0, 0, 0.3);
+    --success-color: #32d74b;
+    --danger-color: #ff453a;
+    --info-color: #0a84ff;
+    --bg-gradient: radial-gradient(at 0% 0%, hsla(212,100%,70%,0.15) 0px, transparent 50%),
+                   radial-gradient(at 98% 99%, hsla(288,100%,60%,0.15) 0px, transparent 50%);
+    /* NEW: Outage severity colors for heatmap */
+    --danger-color-light: #3e2723;
+    --danger-color-medium: #5d4037;
+    --danger-color-heavy: #ff453a;
+}
+
+/* --- Base & Animated Background --- */
+body {
+    background-color: var(--bg-color);
+    background-image: var(--bg-gradient);
+    background-attachment: fixed;
+    color: var(--text-color);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+.main-container { max-width: 1200px; margin: 0 auto; padding: 1rem 1.5rem 2rem; transition: all 0.3s ease-out; }
+
+/* --- Keyframe Animations --- */
+@keyframes pop-in { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+@keyframes modal-pop-in { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+@keyframes stroke { to { stroke-dashoffset: 0; } }
+
+/* --- Layout: Grid & Header --- */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 1.5rem;
+    margin-bottom: 2rem;
+}
+.status-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 1.5rem;
+}
+.section-title { font-size: 1.25rem; font-weight: 600; margin-bottom: 1rem; }
+
+/* --- Glassmorphism Card Style --- */
+.glass-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px 0 var(--shadow-color);
+    transition: all 0.3s ease;
+    padding: 1.5rem;
+}
+.btn-glass {
+    background: var(--glass-bg) !important;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-color: var(--border-color) !important;
+}
+
+/* --- Sidebar & Overall Status --- */
+.sidebar { display: flex; flex-direction: column; gap: 1.5rem; }
+.overall-status-card { text-align: center; border-top-width: 4px; border-top-color: transparent; }
+.overall-status-card.status-ok { border-top-color: var(--success-color); }
+.overall-status-card.status-issue { border-top-color: var(--danger-color); }
+.status-title { font-size: 1.5rem; font-weight: 700; margin-top: 1rem; margin-bottom: 0.25rem; }
+.status-subtitle { font-size: 0.9rem; }
+.status-summary { display: flex; justify-content: center; gap: 1rem; margin-top: 1rem; font-size: 0.85rem; }
+.status-summary .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+.dot.success { background: var(--success-color); }
+.dot.danger { background: var(--danger-color); }
+
+/* --- Animated Status SVG --- */
+.status-icon-container { height: 52px; display: flex; justify-content: center; align-items: center; }
+.status-svg { width: 52px; height: 52px; }
+.status-svg .circle-bg { stroke-width: 4; transition: stroke 0.4s ease; }
+.status-ok .status-svg .circle-bg { stroke: var(--success-color); }
+.status-issue .status-svg .circle-bg { stroke: var(--danger-color); }
+.status-svg .checkmark, .status-svg .cross { stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; transition: stroke 0.4s ease; }
+.status-ok .status-svg .checkmark { stroke: var(--success-color); stroke-dasharray: 48; stroke-dashoffset: 48; animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.4s forwards; }
+.status-issue .status-svg .cross { stroke: var(--danger-color); stroke-dasharray: 48; stroke-dashoffset: 48; animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.4s forwards; }
+
+/* --- Timeline & Incidents --- */
+.card-header-title { font-size: 1rem; font-weight: 600; margin: -1.5rem -1.5rem 1.5rem; padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-color); }
+.timeline-container { padding-bottom: 1.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); }
+.thermometer-track { display: flex; width: 100%; height: 8px; border-radius: 8px; overflow: hidden; background-color: rgba(120, 120, 128, 0.1); }
+.thermometer-day { flex-grow: 1; transition: all 0.2s ease; }
+.thermometer-day:hover { transform: scaleY(1.8); }
+.thermometer-day.status-operational { background-color: var(--success-color); }
+.thermometer-day.status-outage { background-color: var(--danger-color); }
+.incidents-list { display: flex; flex-direction: column; gap: 1rem; }
+.incident-item { display: flex; align-items: center; gap: 1rem; }
+.incident-icon { color: var(--danger-color); }
+.incident-icon-ok { color: var(--success-color); }
+.incident-title { margin-bottom: 0; font-weight: 500; }
+
+/* --- Services List --- */
+.services-list { display: flex; flex-direction: column; gap: 1rem; }
+.service-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1rem 1.5rem; cursor: pointer; opacity: 0;
+    animation: pop-in 0.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+.service-item:hover { transform: scale(1.02); box-shadow: 0 12px 40px var(--shadow-color); }
+.service-info { display: flex; align-items: center; gap: 1rem; }
+.service-icon { transition: color 0.3s ease; }
+.service-item.status-ok .service-icon { color: var(--success-color); }
+.service-item.status-issue .service-icon { color: var(--danger-color); }
+.service-name { font-weight: 600; }
+.service-status { display: flex; align-items: center; gap: 1rem; }
+.latency-chart-container { width: 100px; height: 30px; }
+.status-text-container { text-align: right; }
+html[dir="rtl"] .status-text-container { text-align: left; }
+.status-text { display: block; font-weight: 500; }
+.response-time-text { font-size: 0.85rem; }
+
+/* --- Modal Redesign (Advanced) --- */
+.modal-open-blur .main-container,
+.modal-open-blur .page-header,
+.modal-open-blur .admin-container {
+    filter: blur(5px) brightness(0.9);
+    transform: scale(0.98);
+}
+.fade.show .modal-dialog {
+    animation: modal-pop-in 0.4s cubic-bezier(0.165, 0.84, 0.44, 1) forwards;
+}
+.modal-content.glass-card {
+    background: var(--glass-bg) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border: 1px solid var(--border-color) !important;
+    border-image: linear-gradient(to bottom right, var(--info-color), var(--success-color)) 1;
+    border-radius: 16px !important;
+    box-shadow: 0 8px 32px 0 var(--shadow-color);
+    overflow: hidden;
+}
+.modal-header { border-bottom-color: var(--border-color) !important; }
+.modal-header .service-name { font-size: 1.5rem; font-weight: 700; }
+.btn-close { filter: var(--bs-body-color) == #f5f5f7 ? invert(1) : none; }
+.status-pill {
+    display: inline-block; padding: 0.25rem 0.75rem; border-radius: 99px;
+    font-size: 0.8rem; font-weight: 600; margin-left: 0.75rem; border: 1px solid transparent;
+}
+html[dir="rtl"] .status-pill { margin-left: 0; margin-right: 0.75rem; }
+.status-pill.operational {
+    background-color: rgba(var(--bs-success-rgb), 0.15);
+    border-color: rgba(var(--bs-success-rgb), 0.4);
+    color: var(--success-color);
+}
+.status-pill.outage {
+    background-color: rgba(var(--bs-danger-rgb), 0.15);
+    border-color: rgba(var(--bs-danger-rgb), 0.4);
+    color: var(--danger-color);
+}
+
+/* --- Uptime Activity Graph --- */
+.uptime-graph { display: flex; gap: 8px; }
+.day-labels {
+    display: flex; flex-direction: column; justify-content: space-between;
+    font-size: 0.7rem; color: var(--subtle-text-color);
+    padding-top: 20px; flex-shrink: 0;
+}
+.day-labels span { height: 14px; }
+.heatmap-body { width: 100%; }
+.month-labels {
+    display: grid;
+    font-size: 0.75rem; color: var(--subtle-text-color);
+    padding-bottom: 5px;
+}
+.uptime-heatmap-grid {
+    display: grid;
+    grid-template-rows: repeat(7, 1fr); grid-auto-flow: column;
+    gap: 4px; direction: ltr;
+}
+.heatmap-day {
+    width: 100%; aspect-ratio: 1 / 1; border-radius: 3px;
+    background-color: var(--border-color); transition: all 0.2s ease;
+}
+.heatmap-day:hover { transform: scale(1.2); box-shadow: 0 0 10px rgba(0,0,0,0.2); position: relative; z-index: 10; }
+.heatmap-day.status-operational { background-color: var(--success-color); opacity: 0.8; }
+.heatmap-day.status-outage { background-color: var(--danger-color); }
+.heatmap-day.status-nodata { background-color: rgba(128, 128, 128, 0.2); }
+/* NEW: Granular outage colors */
+.heatmap-day.status-outage-light { background-color: var(--danger-color-light); }
+.heatmap-day.status-outage-medium { background-color: var(--danger-color-medium); }
+.heatmap-day.status-outage-heavy { background-color: var(--danger-color-heavy); }
+
+/* NEW: Heatmap legend styles */
+.heatmap-legend {
+    display: flex;
+    align-items: center;
+    justify-content: end;
+    gap: 5px;
+    margin-top: 0.75rem;
+    padding-right: 14px;
+}
+.heatmap-legend .heatmap-day {
+    width: 14px;
+    height: 14px;
+    transform: none !important;
+    transition: none;
+}
+.heatmap-legend .heatmap-day:hover {
+    box-shadow: none;
+}
+
+/* --- Performance & Reliability KPIs --- */
+.kpi-banner {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px; background-color: var(--border-color);
+    border: 1px solid var(--border-color); border-radius: 12px;
+    overflow: hidden; margin-bottom: 1.5rem;
+}
+.kpi-item {
+    background-color: rgba(128, 128, 128, 0.1); padding: 1rem;
+    text-align: center;
+}
+.kpi-label {
+    font-size: 0.75rem; font-weight: 600; color: var(--subtle-text-color);
+    text-transform: uppercase; letter-spacing: 0.5px;
+}
+.kpi-value { font-size: 2rem; font-weight: 700; line-height: 1.2; color: var(--text-color); }
+.kpi-value .unit { font-size: 1rem; font-weight: 500; color: var(--subtle-text-color); margin-left: 0.25rem; }
+html[dir="rtl"] .kpi-value .unit { margin-left: 0; margin-right: 0.25rem; }
+
+.reliability-kpis {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 1.5rem; margin-bottom: 1.5rem; align-items: center;
+}
+.uptime-donut-container { position: relative; max-width: 200px; margin: 0 auto; }
+.reliability-stats-group { display: flex; flex-direction: column; gap: 1rem; }
+.reliability-stat-card {
+    background-color: rgba(128, 128, 128, 0.1); border: 1px solid var(--border-color);
+    border-radius: 12px; padding: 1rem; display: flex; justify-content: space-between; align-items: center;
+    gap: 1rem;
+}
+.reliability-stat-label { font-size: 0.8rem; font-weight: 500; color: var(--subtle-text-color); }
+.reliability-stat-value { font-size: 1.5rem; font-weight: 700; color: var(--text-color); }
+
+/* NEW: Styles for icons in KPI cards */
+.reliability-stat-card > div {
+    display: flex;
+    flex-direction: column;
+}
+.reliability-stat-card .kpi-icon {
+    font-size: 1.75rem;
+    color: var(--subtle-text-color);
+    opacity: 0.8;
+}
+
+/* --- Custom Glass Tabs --- */
+.nav-tabs { border-bottom-color: var(--border-color); }
+.nav-tabs .nav-link {
+    background-color: transparent; border-color: transparent; border-bottom-color: var(--border-color);
+    color: var(--subtle-text-color); font-weight: 500; transition: all 0.2s ease;
+}
+.nav-tabs .nav-link:hover { border-color: transparent; border-bottom-color: var(--subtle-text-color); color: var(--text-color); }
+.nav-tabs .nav-link.active {
+    background-color: rgba(128, 128, 128, 0.1); border-color: var(--border-color);
+    border-bottom-color: transparent; color: var(--text-color); border-radius: 8px 8px 0 0;
+}
+.tab-content {
+    background-color: rgba(128, 128, 128, 0.1); border: 1px solid var(--border-color);
+    border-top: none; padding: 1.5rem; border-radius: 0 0 12px 12px;
+}
+
+/* --- Admin Panel Consistency --- */
+.admin-container { max-width: 1000px; margin: 0 auto; padding-bottom: 2rem; }
+.navbar.navbar-dark.bg-dark {
+    background-color: var(--glass-bg) !important;
+    border: 1px solid var(--border-color);
+}
+.card { /* Deprecated, use glass-card */
+    background-color: var(--card-bg-color);
+    border-color: var(--border-color);
+}
+.table {
+    --bs-table-bg: transparent; --bs-table-border-color: var(--border-color);
+    --bs-table-striped-bg: rgba(128, 128, 128, 0.05); --bs-table-hover-bg: rgba(128, 128, 128, 0.1);
+}
+.accordion-item, .list-group-item { background-color: transparent !important; }
+
+/* --- Responsive Design --- */
+@media (max-width: 992px) {
+    .status-grid { grid-template-columns: 1fr; }
+    .sidebar { order: -1; }
+}
+@media (max-width: 768px) {
+    .modal-grid { grid-template-columns: 1fr; }
+    .modal-sidebar { display: grid; grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 576px) {
+    .reliability-kpis { grid-template-columns: 1fr; }
+}

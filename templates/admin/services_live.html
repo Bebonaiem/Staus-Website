@@ -1,0 +1,259 @@
+{% extends "admin/_layout.html" %}
+{% block title %}Admin - Services (Live){% endblock %}
+
+{% block admin_content %}
+<div class="glass-card mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h4 class="mb-0">Current Services</h4>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addServiceModal">
+            <i class="fa-solid fa-plus me-1"></i> Add New Service
+        </button>
+    </div>
+</div>
+
+<div class="glass-card p-2 p-md-3">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>URL</th>
+                    <th>Status</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="services-table-body">
+                <tr>
+                    <td colspan="4" class="text-center p-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Add Service Modal -->
+<div class="modal fade" id="addServiceModal" tabindex="-1" aria-labelledby="addServiceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addServiceModalLabel">Add New Service</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="add-service-form" novalidate>
+                    {{ form.hidden_tag() }}
+                    <div class="mb-3">
+                        {{ form.name.label(class="form-label") }}
+                        {{ form.name(class="form-control", id="add-name") }}
+                    </div>
+                    <div class="mb-3">
+                        {{ form.url.label(class="form-label") }}
+                        {{ form.url(class="form-control", id="add-url") }}
+                    </div>
+                    <div class="mb-3">
+                        {{ form.icon.label(class="form-label") }}
+                        {{ form.icon(class="form-control", id="add-icon") }}
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="save-new-service-btn">Add Service</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Service Modal -->
+<div class="modal fade" id="editServiceModal" tabindex="-1" aria-labelledby="editServiceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editServiceModalLabel">Edit Service</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-service-form" novalidate>
+                    <input type="hidden" id="edit-service-id">
+                    {{ edit_form.hidden_tag() }}
+                    <div class="mb-3">
+                        {{ edit_form.name.label(class="form-label") }}
+                        {{ edit_form.name(class="form-control", id="edit-name") }}
+                    </div>
+                    <div class="mb-3">
+                        {{ edit_form.url.label(class="form-label") }}
+                        {{ edit_form.url(class="form-control", id="edit-url") }}
+                    </div>
+                    <div class="mb-3">
+                        {{ edit_form.icon.label(class="form-label") }}
+                        {{ edit_form.icon(class="form-control", id="edit-icon") }}
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="update-service-btn">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteServiceModal" tabindex="-1" aria-labelledby="deleteServiceModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content glass-card">
+      <div class="modal-header">
+        <h5 class="modal-title" id="deleteServiceModalLabel">Confirm Deletion</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        Are you sure you want to delete service: <strong id="delete-service-name"></strong>?
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirm-delete-btn">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+
+{% block scripts %}
+<script type="module">
+    // Using a module for top-level await and better organization
+    const tableBody = document.getElementById('services-table-body');
+    const addServiceModal = new bootstrap.Modal(document.getElementById('addServiceModal'));
+    const editServiceModal = new bootstrap.Modal(document.getElementById('editServiceModal'));
+    const deleteServiceModal = new bootstrap.Modal(document.getElementById('deleteServiceModal'));
+
+    function createServiceRow(service) {
+        const statusBadge = service.status === 'Operational' 
+            ? `<span class="badge text-bg-success">${service.status}</span>`
+            : `<span class="badge text-bg-danger">${service.status}</span>`;
+
+        const row = document.createElement('tr');
+        row.setAttribute('id', `service-row-${service.id}`);
+        row.innerHTML = `
+            <td><i class="${service.icon || 'fa-solid fa-globe'} me-2 text-secondary"></i>${service.name}</td>
+            <td><a href="${service.url}" target="_blank" rel="noopener noreferrer">${service.url}</a></td>
+            <td class="status-cell">${statusBadge}</td>
+            <td class="text-end">
+                <button class="btn btn-sm btn-secondary edit-btn" data-id="${service.id}">Edit</button>
+                <button class="btn btn-sm btn-danger delete-btn" data-id="${service.id}">Delete</button>
+            </td>
+        `;
+        return row;
+    }
+
+    async function loadServices() {
+        try {
+            const response = await fetch('/api/admin/services');
+            if (!response.ok) throw new Error('Failed to fetch services');
+            const services = await response.json();
+            
+            tableBody.innerHTML = '';
+            if (services.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="4" class="text-center p-4">No services found. Add one to get started!</td></tr>';
+            } else {
+                services.forEach(service => {
+                    tableBody.appendChild(createServiceRow(service));
+                });
+            }
+        } catch(error) {
+            console.error('Error loading services:', error);
+            tableBody.innerHTML = '<tr><td colspan="4" class="text-center p-4 text-danger">Could not load services. Please check the console.</td></tr>';
+        }
+    }
+    
+    document.getElementById('save-new-service-btn').addEventListener('click', async () => {
+        const form = document.getElementById('add-service-form');
+        const formData = new FormData(form);
+        const response = await fetch('/api/admin/services', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (response.ok) {
+            const newService = await response.json();
+            if (tableBody.querySelector('td[colspan="4"]')) tableBody.innerHTML = '';
+            tableBody.appendChild(createServiceRow(newService));
+            addServiceModal.hide();
+            form.reset();
+        } else {
+            const errorData = await response.json();
+            alert('Error adding service: ' + JSON.stringify(errorData.errors));
+        }
+    });
+
+    tableBody.addEventListener('click', async (e) => {
+        const target = e.target;
+        const serviceId = target.dataset.id;
+        if (!serviceId) return;
+
+        if (target.classList.contains('edit-btn')) {
+            const row = document.getElementById(`service-row-${serviceId}`);
+            const serviceName = row.cells[0].textContent.trim();
+            const serviceUrl = row.cells[1].textContent.trim();
+            const serviceIcon = row.querySelector('i').className.replace(/ me-2 text-secondary/g, '');
+
+            document.getElementById('edit-service-id').value = serviceId;
+            document.getElementById('edit-name').value = serviceName;
+            document.getElementById('edit-url').value = serviceUrl;
+            document.getElementById('edit-icon').value = serviceIcon;
+            editServiceModal.show();
+        }
+
+        if (target.classList.contains('delete-btn')) {
+            const row = document.getElementById(`service-row-${serviceId}`);
+            const serviceName = row.cells[0].textContent.trim();
+            document.getElementById('delete-service-name').textContent = serviceName;
+            document.getElementById('confirm-delete-btn').dataset.id = serviceId;
+            deleteServiceModal.show();
+        }
+    });
+
+    document.getElementById('update-service-btn').addEventListener('click', async () => {
+        const serviceId = document.getElementById('edit-service-id').value;
+        const form = document.getElementById('edit-service-form');
+        const formData = new FormData(form);
+        const response = await fetch(`/api/admin/services/${serviceId}`, {
+            method: 'PUT',
+            body: formData
+        });
+
+        if (response.ok) {
+            const updatedService = await response.json();
+            const oldRow = document.getElementById(`service-row-${serviceId}`);
+            oldRow.replaceWith(createServiceRow(updatedService));
+            editServiceModal.hide();
+        } else {
+            const errorData = await response.json();
+            alert('Error updating service: ' + JSON.stringify(errorData.errors));
+        }
+    });
+
+    document.getElementById('confirm-delete-btn').addEventListener('click', async (e) => {
+        const serviceId = e.target.dataset.id;
+        const response = await fetch(`/api/admin/services/${serviceId}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            document.getElementById(`service-row-${serviceId}`).remove();
+            deleteServiceModal.hide();
+            if (tableBody.children.length === 0) {
+                 tableBody.innerHTML = '<tr><td colspan="4" class="text-center p-4">No services found. Add one to get started!</td></tr>';
+            }
+        } else {
+            alert('Error deleting service.');
+        }
+    });
+
+    loadServices();
+</script>
+{% endblock %}

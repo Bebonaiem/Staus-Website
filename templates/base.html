@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="{{ get_locale() }}" {% if get_locale() == 'ar' %}dir="rtl"{% endif %}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ _('page_title') }}{% endblock %}</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    {% if get_locale() == 'ar' %}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.rtl.min.css">
+    {% endif %}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+    <script>
+        (function() {
+            const getPreferredTheme = () => {
+                const stored = localStorage.getItem('theme');
+                if (stored) return stored;
+                return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+            document.documentElement.setAttribute('data-bs-theme', getPreferredTheme());
+        })();
+    </script>
+</head>
+<body class="d-flex flex-column min-vh-100">
+    <div class="container d-flex justify-content-end pt-3">
+        <div class="dropdown">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="fa-solid fa-globe"></i> {{ get_locale()|upper }}
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="{{ url_for('main.set_language', language='en') }}">English</a></li>
+                <li><a class="dropdown-item" href="{{ url_for('main.set_language', language='ar') }}">العربية</a></li>
+                <li><a class="dropdown-item" href="{{ url_for('main.set_language', language='es') }}">Español</a></li>
+                <li><a class="dropdown-item" href="{{ url_for('main.set_language', language='fr') }}">Français</a></li>
+                <li><a class="dropdown-item" href="{{ url_for('main.set_language', language='de') }}">Deutsch</a></li>
+                <li><a class="dropdown-item" href="{{ url_for('main.set_language', language='ru') }}">Русский</a></li>
+            </ul>
+        </div>
+    </div>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="container mt-2">
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+    
+    {% block content %}{% endblock %}
+
+    <footer class="text-center text-muted mt-auto py-3">
+         <p>© {{ year if year else 2024 }} Your Company. All rights reserved.</p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

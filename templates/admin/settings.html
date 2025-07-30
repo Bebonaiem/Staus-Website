@@ -1,0 +1,27 @@
+{% extends "admin/_layout.html" %}
+{% block title %}{{ _('admin_panel') }} - {{ _('settings') }}{% endblock %}
+{% block admin_content %}
+<div class="glass-card">
+    <h4 class="mb-4">{{ _('configuration') }}</h4>
+    <form method="POST" novalidate>
+        {{ form.hidden_tag() }}
+        <div class="mb-3">
+            {{ form.page_title.label(class="form-label", text=_('page_title')) }}
+            {{ form.page_title(class="form-control") }}
+        </div>
+        <div class="mb-3">
+            {{ form.slack_webhook_url.label(class="form-label", text=_('slack_webhook_url')) }}
+            {{ form.slack_webhook_url(class="form-control", placeholder="Leave empty to disable") }}
+            <div class="form-text">{{ _('slack_webhook_help') }}</div>
+        </div>
+        <div class="mb-3">
+            {{ form.check_interval_seconds.label(class="form-label") }}
+            {{ form.check_interval_seconds(class="form-control") }}
+            {% if form.check_interval_seconds.description %}
+                <div class="form-text">{{ form.check_interval_seconds.description }}</div>
+            {% endif %}
+        </div>
+        {{ form.submit(class="btn btn-primary", value=_('save_settings')) }}
+    </form>
+</div>
+{% endblock %}

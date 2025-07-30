@@ -1,0 +1,461 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="main-container">
+    <header class="page-header">
+        <h1 class="h2 mb-0 fw-bold">{{ page_title }}</h1>
+        <div class="d-flex align-items-center">
+            <button id="theme-toggle" class="btn btn-sm btn-glass" title="{{ _('toggle_theme') }}"><i class="fa-solid fa-sun" id="theme-icon"></i></button>
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('main.admin_services') }}" class="btn btn-sm btn-primary ms-2">{{ _('admin_panel') }}</a>
+            {% else %}
+                <a href="{{ url_for('main.login') }}" class="btn btn-sm btn-outline-secondary ms-2">{{ _('admin_login') }}</a>
+            {% endif %}
+        </div>
+    </header>
+
+    <div class="status-grid">
+        <!-- Main Content: Services List -->
+        <main class="main-content">
+            <h2 class="section-title">{{ _('System Status') }}</h2>
+            <div id="services-list" class="services-list" aria-live="polite">
+                <div class="w-100 text-center p-5" id="loading-spinner-container">
+                    <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <!-- Overall Status Card -->
+            <div class="glass-card overall-status-card" aria-live="polite">
+                <div id="overall-status-icon" class="status-icon-container">
+                    <!-- SVG icon will be injected by JS -->
+                </div>
+                <h3 id="banner-title" class="status-title">Loading...</h3>
+                <p id="banner-subtitle" class="status-subtitle text-muted"></p>
+                <div class="status-summary">
+                    <span><span class="dot success"></span><span id="operational-count">_</span> {{ _('operational') }}</span>
+                    <span><span class="dot danger"></span><span id="outage-count">_</span> {{ _('major_outages') }}</span>
+                </div>
+            </div>
+
+            <!-- Event Timeline Card -->
+            <div class="glass-card">
+                <h3 class="card-header-title">{{ _('Event Timeline') }}</h3>
+                <div class="timeline-container">
+                    <span class="text-muted small">{{ _('Uptime (Last 60 Days)') }}</span>
+                    <div class="thermometer-track mt-1" data-bs-toggle="tooltip" title="{{ _('Overall system status for the last 60 days') }}">
+                        {% for i in range(60) %}
+                            {% set day = (datetime.utcnow() - timedelta(days=59-i)) %}
+                            {% set day_str = day.strftime('%Y-%m-%d') %}
+                            {% set day_status = status_timeline.get(day_str, 'operational') %}
+                            <div class="thermometer-day status-{{ day_status }}" data-bs-toggle="tooltip" title="{{ day.strftime('%b %d, %Y') }}: {{ _(day_status) }}"></div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div id="incidents-timeline" class="incidents-list">
+                {% if incidents %}
+                    {% for incident in incidents %}
+                        <div class="incident-item">
+                            <i class="fa-solid fa-triangle-exclamation incident-icon"></i>
+                            <div class="incident-details">
+                                <p class="incident-title">{{ incident.title }}</p>
+                                <small class="text-muted">{{ incident.status|capitalize }} · {{ incident.created_at.strftime('%b %d') }}</small>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="incident-item">
+                        <i class="fa-solid fa-check-circle incident-icon-ok"></i>
+                        <div class="incident-details">
+                            <p class="incident-title">{{ _('No recent incidents') }}</p>
+                            <small class="text-muted">{{ _('All systems have been stable.') }}</small>
+                        </div>
+                    </div>
+                {% endif %}
+                </div>
+            </div>
+        </aside>
+    </div>
+</div>
+
+<!-- Service Detail Modal -->
+<div class="modal fade" id="serviceDetailModal" tabindex="-1" aria-labelledby="serviceDetailModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content glass-card">
+      <div class="modal-header">
+        <h5 class="modal-title" id="serviceDetailModalLabel"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <!-- Content will be injected by JS -->
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+
+{% block scripts %}
+<!-- Load Chart.js and adapters -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/date-fns@2.30.0/cdn.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // --- Elements ---
+    const servicesList = document.getElementById('services-list');
+    const serviceDetailModalEl = document.getElementById('serviceDetailModal');
+    const serviceDetailModal = new bootstrap.Modal(serviceDetailModalEl);
+    const modalTitle = document.getElementById('serviceDetailModalLabel');
+    const modalBody = serviceDetailModalEl.querySelector('.modal-body');
+    const mainPageContainer = document.querySelector('body');
+    const checkIntervalSeconds = parseInt("{{ check_interval_seconds }}", 10) || 60;
+    let serviceCharts = {};
+    let activeModalCharts = [];
+
+    // --- Animated SVG Icons ---
+    const ICONS = {
+        OPERATIONAL: `<svg class="status-svg" viewBox="0 0 52 52"><circle class="circle-bg" cx="26" cy="26" r="25" fill="none"/><path class="checkmark" fill="none" d="M14 27l8 8 16-16"/></svg>`,
+        OUTAGE: `<svg class="status-svg" viewBox="0 0 52 52"><circle class="circle-bg" cx="26" cy="26" r="25" fill="none"/><path class="cross" fill="none" d="M16 16 36 36 M36 16 16 36" /></svg>`,
+        LOADING: `<div class="spinner-border" role="status"></div>`
+    };
+
+    // --- Event Listeners for Modal Blur Effect ---
+    serviceDetailModalEl.addEventListener('show.bs.modal', () => mainPageContainer.classList.add('modal-open-blur'));
+    serviceDetailModalEl.addEventListener('hidden.bs.modal', () => mainPageContainer.classList.remove('modal-open-blur'));
+
+    // --- Render Functions ---
+    const createServiceItem = (service, index) => {
+        const item = document.createElement('div');
+        item.className = 'glass-card service-item';
+        item.dataset.serviceId = service.id;
+        item.style.animationDelay = `${index * 80}ms`;
+        item.innerHTML = `
+            <div class="service-info">
+                <i class="${service.icon || 'fa-solid fa-globe'} fa-lg service-icon"></i>
+                <span class="service-name">${service.name}</span>
+            </div>
+            <div class="service-status">
+                <div class="latency-chart-container">
+                    <canvas class="latency-chart"></canvas>
+                </div>
+                <div class="status-text-container">
+                    <span class="status-text">${service.status_translated}</span>
+                    <span class="response-time-text">${service.response_time >= 0 ? service.response_time + 'ms' : ''}</span>
+                </div>
+            </div>
+        `;
+        item.addEventListener('click', () => showServiceModal(service));
+        return item;
+    };
+    
+    const renderServices = (data) => {
+        servicesList.innerHTML = '';
+        Object.values(serviceCharts).forEach(chart => chart.destroy());
+        serviceCharts = {};
+        data.services.forEach((service, index) => {
+            const serviceItem = createServiceItem(service, index);
+            servicesList.appendChild(serviceItem);
+            initLatencyChart(serviceItem.querySelector('.latency-chart'), service);
+            updateServiceItem(serviceItem, service);
+        });
+        [...document.querySelectorAll('[data-bs-toggle="tooltip"]')].map(el => new bootstrap.Tooltip(el));
+    };
+
+    const updateServiceItem = (item, service) => {
+        const statusClass = service.status === 'Operational' ? 'status-ok' : 'status-issue';
+        item.classList.remove('status-ok', 'status-issue');
+        item.classList.add(statusClass);
+        item.querySelector('.status-text').textContent = service.status_translated;
+        const responseTimeEl = item.querySelector('.response-time-text');
+        responseTimeEl.textContent = service.response_time >= 0 ? `${service.response_time} ms` : 'N/A';
+        responseTimeEl.style.color = service.response_time > 500 ? 'var(--danger-color)' : (service.response_time >= 0 ? 'var(--success-color)' : 'inherit');
+        if (serviceCharts[service.id]) {
+            const chart = serviceCharts[service.id];
+            chart.data.datasets[0].data.push(service.response_time);
+            if (chart.data.datasets[0].data.length > 20) chart.data.datasets[0].data.shift();
+            chart.update('none');
+        }
+    };
+
+    const updateOverallStatus = (data) => {
+        const banner = document.querySelector('.overall-status-card');
+        const iconContainer = document.getElementById('overall-status-icon');
+        banner.classList.remove('status-ok', 'status-issue');
+        banner.classList.add(data.is_operational ? 'status-ok' : 'status-issue');
+        const newIcon = data.is_operational ? ICONS.OPERATIONAL : ICONS.OUTAGE;
+        if (iconContainer.innerHTML.includes('spinner') || banner.classList.contains('status-ok') !== data.is_operational) {
+            iconContainer.innerHTML = newIcon;
+        }
+        document.getElementById('banner-title').textContent = data.is_operational ? data.all_systems_operational : data.some_systems_issues;
+        let operationalCount = data.services.filter(s => s.status === 'Operational').length;
+        document.getElementById('operational-count').textContent = operationalCount;
+        document.getElementById('outage-count').textContent = data.services.length - operationalCount;
+    };
+
+    const showServiceModal = (service) => {
+        serviceDetailModalEl.querySelector('.modal-dialog').classList.add('modal-xl');
+        const statusPillClass = service.status === 'Operational' ? 'operational' : 'outage';
+        modalTitle.innerHTML = `<span class="service-name">${service.name}</span><span class="status-pill ${statusPillClass}">${service.status_translated}</span>`;
+        
+        const last30Checks = service.uptime_history.slice(-30) || [];
+        const validLatencies = last30Checks.map(p => p.response_time).filter(t => t >= 0);
+        let perfStats = { avg: 'N/A', max: 'N/A', p95: 'N/A' };
+        if (validLatencies.length > 0) {
+            perfStats.avg = (validLatencies.reduce((a, b) => a + b, 0) / validLatencies.length).toFixed(0);
+            perfStats.max = Math.max(...validLatencies).toFixed(0);
+            validLatencies.sort((a, b) => a - b);
+            const p95Index = Math.floor(0.95 * validLatencies.length) - 1;
+            perfStats.p95 = validLatencies[Math.max(0, p95Index)].toFixed(0);
+        }
+
+        const history60d = service.uptime_history || [];
+        const dailyData = new Map();
+        let totalIncidents = 0, longestIncidentDuration = 0, currentIncidentDuration = 0, wasOperational = true;
+        history60d.forEach(p => {
+            const dayKey = new Date(p.timestamp).toISOString().split('T')[0];
+            if (!dailyData.has(dayKey)) dailyData.set(dayKey, { outageCount: 0, downtimeMinutes: 0, status: 'operational' });
+            const day = dailyData.get(dayKey);
+            if (p.status !== 'Operational') {
+                day.status = 'outage'; day.outageCount++; day.downtimeMinutes += checkIntervalSeconds / 60;
+                if (wasOperational) { totalIncidents++; currentIncidentDuration = checkIntervalSeconds; } else { currentIncidentDuration += checkIntervalSeconds; }
+                wasOperational = false;
+            } else {
+                if (!wasOperational) { longestIncidentDuration = Math.max(longestIncidentDuration, currentIncidentDuration); currentIncidentDuration = 0; }
+                wasOperational = true;
+            }
+        });
+        longestIncidentDuration = Math.max(longestIncidentDuration, currentIncidentDuration);
+        const longestIncidentStr = longestIncidentDuration > 0 ? `${(longestIncidentDuration / 60).toFixed(0)} min` : 'None';
+        const reliabilityStats = {
+            uptime: history60d.length > 0 ? ((history60d.filter(p => p.status === 'Operational').length / history60d.length) * 100).toFixed(3) : '100.000',
+            incidents: totalIncidents,
+            longest: longestIncidentStr
+        };
+
+        const getHeatmapDayClass = (dayInfo, date, today) => {
+            if (date > today) return '';
+            if (!dayInfo) return 'status-nodata';
+            if (dayInfo.status === 'operational') return 'status-operational';
+
+            if (dayInfo.downtimeMinutes > 60) return 'status-outage-heavy';
+            if (dayInfo.downtimeMinutes > 15) return 'status-outage-medium';
+            if (dayInfo.downtimeMinutes > 0) return 'status-outage-light';
+            
+            return 'status-operational'; // Fallback
+        };
+
+        let heatmapHTML = '';
+        const today = new Date();
+        const weeksToShow = 9; // Approx 60 days
+        const totalGridDays = weeksToShow * 7;
+        const gridStartDate = new Date(today);
+        gridStartDate.setDate(today.getDate() - (totalGridDays - 1 - today.getDay()));
+
+        let monthLabelsHTML = '';
+        const monthLabelPositions = new Map();
+
+        for (let i = 0; i < totalGridDays; i++) {
+            const date = new Date(gridStartDate);
+            date.setDate(gridStartDate.getDate() + i);
+            const weekIndex = Math.floor(i / 7);
+
+            if (date.getDate() === 1 || i === 0) {
+                const monthName = date.toLocaleString('default', { month: 'short' });
+                if (!monthLabelPositions.has(monthName) && weekIndex < weeksToShow) {
+                    monthLabelPositions.set(monthName, weekIndex);
+                }
+            }
+
+            if (date > today) {
+                heatmapHTML += `<div class="heatmap-day" style="visibility: hidden;"></div>`;
+            } else {
+                const dayKey = date.toISOString().split('T')[0];
+                const dayInfo = dailyData.get(dayKey);
+                const statusClass = getHeatmapDayClass(dayInfo, date, today);
+                const dateString = date.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+                let title = `${dateString}: No data`;
+                if (dayInfo) title = `${dateString}<br>Status: ${dayInfo.status}<br>Outages: ${dayInfo.outageCount}<br>Downtime: ~${dayInfo.downtimeMinutes.toFixed(0)} min`;
+                heatmapHTML += `<div class="heatmap-day ${statusClass}" data-bs-toggle="tooltip" data-bs-html="true" title="${title}"></div>`;
+            }
+        }
+        monthLabelPositions.forEach((weekIndex, monthName) => {
+            monthLabelsHTML += `<div class="month" style="grid-column-start: ${weekIndex + 1}">${monthName}</div>`;
+        });
+        
+        modalBody.innerHTML = `
+            <div class="kpi-banner">
+                <div class="kpi-item"><div class="kpi-label">UPTIME (24H)</div><div class="kpi-value">${service.uptime_24h || '100.00'}<span class="unit">%</span></div></div>
+                <div class="kpi-item"><div class="kpi-label">AVG LATENCY</div><div class="kpi-value">${perfStats.avg}<span class="unit">ms</span></div></div>
+                <div class="kpi-item"><div class="kpi-label">P95 LATENCY</div><div class="kpi-value">${perfStats.p95}<span class="unit">ms</span></div></div>
+            </div>
+
+            <ul class="nav nav-tabs" id="modalTab" role="tablist">
+                <li class="nav-item" role="presentation"><button class="nav-link active" id="reliability-tab" data-bs-toggle="tab" data-bs-target="#reliability-pane" type="button">Reliability (60 Days)</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link" id="performance-tab" data-bs-toggle="tab" data-bs-target="#performance-pane" type="button">Performance (30 Checks)</button></li>
+            </ul>
+            <div class="tab-content" id="modalTabContent">
+                <div class="tab-pane fade show active p-3" id="reliability-pane" role="tabpanel">
+                    <div class="reliability-kpis">
+                        <div class="uptime-donut-container"><canvas id="modalUptimeDonut"></canvas></div>
+                        <div class="reliability-stats-group">
+                            <div class="reliability-stat-card">
+                                <div>
+                                    <span class="reliability-stat-label">OVERALL UPTIME</span>
+                                    <span class="reliability-stat-value">${reliabilityStats.uptime}%</span>
+                                </div>
+                                <i class="fa-solid fa-shield-halved kpi-icon"></i>
+                            </div>
+                            <div class="reliability-stat-card">
+                                <div>
+                                    <span class="reliability-stat-label">TOTAL INCIDENTS</span>
+                                    <span class="reliability-stat-value">${reliabilityStats.incidents}</span>
+                                </div>
+                                <i class="fa-solid fa-triangle-exclamation kpi-icon"></i>
+                            </div>
+                            <div class="reliability-stat-card">
+                                <div>
+                                    <span class="reliability-stat-label">LONGEST INCIDENT</span>
+                                    <span class="reliability-stat-value">${reliabilityStats.longest}</span>
+                                </div>
+                                <i class="fa-solid fa-clock kpi-icon"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="uptime-graph mt-3">
+                        <div class="day-labels"><span>Mon</span><span></span><span>Wed</span><span></span><span>Fri</span><span></span><span>Sun</span></div>
+                        <div class="heatmap-body">
+                            <div class="month-labels" style="grid-template-columns: repeat(${weeksToShow}, 1fr);">${monthLabelsHTML}</div>
+                            <div class="uptime-heatmap-grid" style="grid-template-columns: repeat(${weeksToShow}, 1fr);">${heatmapHTML}</div>
+                        </div>
+                    </div>
+                    <div class="heatmap-legend">
+                        <span class="text-muted small me-2">Less downtime</span>
+                        <div class="heatmap-day status-operational"></div>
+                        <div class="heatmap-day status-outage-light"></div>
+                        <div class="heatmap-day status-outage-medium"></div>
+                        <div class="heatmap-day status-outage-heavy"></div>
+                        <span class="text-muted small ms-2">More</span>
+                    </div>
+                </div>
+                <div class="tab-pane fade p-3" id="performance-pane" role="tabpanel">
+                    <canvas id="modalLatencyChart"></canvas>
+                </div>
+            </div>
+        `;
+        serviceDetailModal.show();
+        
+        const tooltipTriggerList = serviceDetailModalEl.querySelectorAll('[data-bs-toggle="tooltip"]');
+        [...tooltipTriggerList].map(el => new bootstrap.Tooltip(el, { container: 'body' }));
+
+        activeModalCharts.forEach(c => c.destroy());
+        activeModalCharts = [];
+        
+        const uptimeDonutCanvas = document.getElementById('modalUptimeDonut');
+        const successColor = getComputedStyle(document.documentElement).getPropertyValue('--success-color').trim();
+        const uptimeDonutPlugin = {
+            id: 'centerText',
+            afterDraw: (chart) => {
+                let ctx = chart.ctx;
+                ctx.save();
+                const text = parseFloat(chart.data.datasets[0].data[0]).toFixed(3) + '%';
+                const subText = 'Uptime';
+                const centerX = (chart.chartArea.left + chart.chartArea.right) / 2;
+                const centerY = (chart.chartArea.top + chart.chartArea.bottom) / 2;
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.font = 'bold 2rem ' + getComputedStyle(document.body).fontFamily;
+                ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-color');
+                ctx.fillText(text, centerX, centerY - 10);
+                ctx.font = '500 0.8rem ' + getComputedStyle(document.body).fontFamily;
+                ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--subtle-text-color');
+                ctx.fillText(subText, centerX, centerY + 20);
+                ctx.restore();
+            }
+        };
+        activeModalCharts.push(new Chart(uptimeDonutCanvas, {
+            type: 'doughnut',
+            data: { datasets: [{
+                data: [reliabilityStats.uptime, 100 - reliabilityStats.uptime],
+                backgroundColor: [successColor, 'rgba(128,128,128,0.2)'],
+                borderWidth: 0, borderRadius: 5
+            }] },
+            options: { cutout: '75%', plugins: { legend: { display: false }, tooltip: { enabled: false } } },
+            plugins: [uptimeDonutPlugin]
+        }));
+        
+        const performanceTab = document.getElementById('performance-tab');
+        performanceTab.addEventListener('shown.bs.tab', () => {
+            const latencyCanvas = document.getElementById('modalLatencyChart');
+            if (!latencyCanvas) return;
+            const latencyData = last30Checks.map(p => ({ x: new Date(p.timestamp), y: p.response_time >= 0 ? p.response_time : null }));
+            const warningColor = getComputedStyle(document.documentElement).getPropertyValue('--bs-orange')?.trim() || '#fd7e14';
+            const dangerColor = getComputedStyle(document.documentElement).getPropertyValue('--danger-color').trim();
+
+            activeModalCharts.push(new Chart(latencyCanvas, {
+                type: 'line', data: { datasets: [{
+                    label: 'Response Time', data: latencyData, fill: false, tension: 0.4,
+                    segment: { borderColor: ctx => { const y = ctx.p1.raw.y; if (y === null) return 'transparent'; if (y > 500) return dangerColor; if (y > 200) return warningColor; return successColor; } },
+                    pointBackgroundColor: ctx => { const y = ctx.raw.y; if (y > 500) return dangerColor; if (y > 200) return warningColor; return successColor; },
+                    pointBorderColor: 'rgba(255, 255, 255, 0.7)', pointRadius: 3, pointHoverRadius: 6, pointHoverBorderWidth: 2
+                }]},
+                options: {
+                    scales: { y: { beginAtZero: true, title: { display: true, text: 'ms' } }, x: { type: 'time', time: { tooltipFormat: 'MMM d, h:mm a' }, display: false } },
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c) { return `Latency: ${c.raw.y} ms`; } } } }
+                }
+            }));
+        }, { once: true });
+    };
+
+    const initLatencyChart = (canvas, service) => {
+        const initialData = (service.uptime_history || []).slice(-20).map(p => p.response_time);
+        serviceCharts[service.id] = new Chart(canvas, {
+            type: 'line', data: { labels: Array(initialData.length).fill(''), datasets: [{ data: initialData, borderColor: 'var(--info-color)', borderWidth: 2, pointRadius: 0, tension: 0.4 }] },
+            options: { responsive: true, maintainAspectRatio: false, scales: { x: { display: false }, y: { display: false } }, plugins: { legend: { display: false }, tooltip: { enabled: false } }, animation: false }
+        });
+    };
+
+    let lastApiUpdateTimestamp = null;
+    async function fetchStatus() {
+        try {
+            const response = await fetch('/api/status');
+            if (!response.ok) return;
+            const data = await response.json();
+            
+            lastApiUpdateTimestamp = new Date();
+            document.getElementById('banner-subtitle').textContent = `{{ _('last_checked') }}: ${lastApiUpdateTimestamp.toLocaleTimeString()}`;
+            
+            updateOverallStatus(data);
+            if (document.getElementById('loading-spinner-container')) {
+                renderServices(data);
+            } else {
+                data.services.forEach(service => {
+                    const item = servicesList.querySelector(`.service-item[data-service-id='${service.id}']`);
+                    if (item) {
+                        item.onclick = () => showServiceModal(service);
+                        updateServiceItem(item, service);
+                    }
+                });
+            }
+        } catch (error) { console.error("Error fetching status:", error); }
+    }
+    
+    const themeToggle = document.getElementById('theme-toggle');
+    const themeIcon = themeToggle.querySelector('i');
+    const setTheme = (theme) => {
+        document.documentElement.setAttribute('data-bs-theme', theme);
+        themeIcon.className = theme === 'dark' ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
+        localStorage.setItem('theme', theme);
+    };
+    themeToggle.addEventListener('click', () => setTheme(document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark'));
+    setTheme(localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+    document.getElementById('overall-status-icon').innerHTML = ICONS.LOADING;
+    fetchStatus();
+    setInterval(fetchStatus, checkIntervalSeconds * 1000);
+});
+</script>
+{% endblock %}

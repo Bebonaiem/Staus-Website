@@ -1,0 +1,65 @@
+{% extends "admin/_layout.html" %}
+{% block title %}Admin - Incidents{% endblock %}
+{% block admin_content %}
+<div class="glass-card mb-4">
+    <h4 class="mb-3">Report New Incident</h4>
+    <form method="POST" novalidate>
+        <input type="hidden" name="report_incident" value="true">
+        {{ form.hidden_tag() }}
+        <div class="mb-3">{{ form.title.label(class="form-label") }}{{ form.title(class="form-control") }}</div>
+        <div class="mb-3">{{ form.update_text.label(class="form-label") }}{{ form.update_text(class="form-control", rows="2") }}</div>
+        <div class="row">
+            <div class="col-md-6 mb-3">{{ form.status.label(class="form-label") }}{{ form.status(class="form-select") }}</div>
+            <div class="col-md-6 mb-3">{{ form.severity.label(class="form-label") }}{{ form.severity(class="form-select") }}</div>
+        </div>
+        {{ form.submit(class="btn btn-primary") }}
+    </form>
+</div>
+
+<div class="glass-card">
+    <h4 class="mb-3">Incident History</h4>
+    <div class="accordion accordion-flush" id="incidentsAccordion">
+    {% for incident in incidents %}
+        <div class="accordion-item bg-transparent">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed bg-transparent" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ incident.id }}">
+                    <strong>{{ incident.title }}</strong> - <span class="badge bg-{{ 'danger' if incident.severity == 'critical' else 'warning' }} ms-2">{{ incident.status }}</span>
+                    <small class="ms-auto text-muted">{{ incident.created_at.strftime('%b %d, %Y') }}</small>
+                </button>
+            </h2>
+            <div id="collapse-{{ incident.id }}" class="accordion-collapse collapse" data-bs-parent="#incidentsAccordion">
+                <div class="accordion-body">
+                    <div class="d-flex justify-content-end mb-3">
+                        <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteModal" data-id="{{ incident.id }}" data-name="{{ incident.title }}" data-type="incident">Delete Incident</button>
+                    </div>
+                    <h6>Updates</h6>
+                    <ul class="list-group list-group-flush mb-3">
+                    {% for update in incident.updates %}
+                        <li class="list-group-item bg-transparent">
+                            <strong>{{ update.status }}</strong> ({{ update.created_at.strftime('%b %d, %H:%M') }})
+                            <p class="mb-0">{{ update.update_text }}</p>
+                        </li>
+                    {% endfor %}
+                    </ul>
+                    <h6>Post a New Update</h6>
+                    <form method="POST" novalidate>
+                        <input type="hidden" name="post_update" value="true">
+                        <input type="hidden" name="incident_id" value="{{ incident.id }}">
+                        {{ update_form.hidden_tag() }}
+                        <div class="mb-2">{{ update_form.update_text(class="form-control", rows="2", placeholder="Provide an update...") }}</div>
+                        <div class="mb-2">{{ update_form.status(class="form-select") }}</div>
+                        {{ update_form.submit(class="btn btn-secondary btn-sm") }}
+                    </form>
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+    </div>
+</div>
+
+{% include 'admin/_delete_modal.html' %}
+{% endblock %}
+
+{% block scripts %}
+{% include 'admin/_delete_modal_script.html' %}
+{% endblock %}

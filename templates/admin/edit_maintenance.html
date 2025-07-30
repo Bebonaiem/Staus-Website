@@ -1,0 +1,22 @@
+{% extends "admin/_layout.html" %}
+{% block title %}Edit Maintenance - {{ maintenance.title }}{% endblock %}
+{% block admin_content %}
+<div class="card">
+    <div class="card-header">
+        <h4>Edit Maintenance: {{ maintenance.title }}</h4>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('main.admin_edit_maintenance', maint_id=maintenance.id) }}" novalidate>
+            {{ form.hidden_tag() }}
+            <div class="mb-3">{{ form.title.label(class="form-label") }}{{ form.title(class="form-control") }}</div>
+            <div class="mb-3">{{ form.description.label(class="form-label") }}{{ form.description(class="form-control", rows="3") }}</div>
+            <div class="row">
+                <div class="col-md-6 mb-3">{{ form.start_time.label(class="form-label") }}{{ form.start_time(class="form-control") }}</div>
+                <div class="col-md-6 mb-3">{{ form.end_time.label(class="form-label") }}{{ form.end_time(class="form-control") }}</div>
+            </div>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+            <a href="{{ url_for('main.admin_maintenances') }}" class="btn btn-secondary">Cancel</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends "admin/_layout.html" %}
+{% block title %}{{ _('admin_panel') }} - {{ _('services') }}{% endblock %}
+{% block admin_content %}
+<div class="card mb-4">
+    <div class="card-header">{{ _('add_new_service') }}</div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('main.admin_services') }}" novalidate>
+            {{ form.hidden_tag() }}
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">{{ form.name.label(class="form-label") }}{{ form.name(class="form-control") }}</div>
+                <div class="col-md-4">{{ form.url.label(class="form-label") }}{{ form.url(class="form-control", placeholder="https://example.com") }}</div>
+                <div class="col-md-2">{{ form.icon.label(class="form-label") }}{{ form.icon(class="form-control") }}</div>
+                <div class="col-md-2">{{ form.submit(class="btn btn-primary w-100") }}</div>
+            </div>
+        </form>
+    </div>
+</div>
+<div class="card">
+    <div class="card-header">{{ _('current_services') }}</div>
+    <table class="table mb-0 align-middle">
+        <thead>
+            <tr>
+                <th>{{ _('name') }}</th>
+                <th>{{ _('status') }}</th>
+                <th>{{ _('actions') }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for service in services %}
+            <tr>
+                <td class="fw-bold"><i class="{{ service.icon or 'fa-solid fa-globe' }} me-2 text-secondary"></i>{{ service.name }}</td>
+                <td><span class="badge bg-{{'success' if service.status == 'Operational' else 'danger'}}">{{ _(service.status.lower().replace(' ', '_')) }}</span></td>
+                <td>
+                    <a href="{{ url_for('main.admin_edit_service', service_id=service.id) }}" class="btn btn-secondary btn-sm">Edit</a>
+                    <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteModal" data-id="{{ service.id }}" data-name="{{ service.name }}" data-type="service">Delete</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% include 'admin/_delete_modal.html' %}
+{% endblock %}
+
+{% block scripts %}
+{% include 'admin/_delete_modal_script.html' %}
+{% endblock %}

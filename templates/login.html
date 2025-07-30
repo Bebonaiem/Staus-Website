@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-5 col-lg-4">
+        <div class="card shadow-sm mt-5">
+            <div class="card-body p-4">
+                <h3 class="card-title text-center mb-4">{{ title }}</h3>
+                <form method="POST" action="" novalidate>
+                    {{ form.hidden_tag() }}
+                    <div class="mb-3">
+                        {{ form.email.label(class="form-label") }}
+                        {{ form.email(class="form-control", placeholder="admin@example.com") }}
+                    </div>
+                    <div class="mb-3">
+                        {{ form.password.label(class="form-label") }}
+                        {{ form.password(class="form-control") }}
+                    </div>
+                    <div class="d-grid">
+                        {{ form.submit(class="btn btn-primary") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

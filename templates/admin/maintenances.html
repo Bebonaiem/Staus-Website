@@ -1,0 +1,80 @@
+{% extends "admin/_layout.html" %}
+{% block title %}Admin - Maintenances{% endblock %}
+{% block admin_content %}
+<div class="glass-card mb-4">
+    <h4 class="mb-3">Schedule New Maintenance</h4>
+    <form method="POST" novalidate>
+        {{ form.hidden_tag() }}
+        <div class="mb-3">{{ form.title.label(class="form-label") }}{{ form.title(class="form-control") }}</div>
+        <div class="mb-3">{{ form.description.label(class="form-label") }}{{ form.description(class="form-control", rows="3") }}</div>
+        <div class="row">
+            <div class="col-md-6 mb-3">{{ form.start_time.label(class="form-label") }}{{ form.start_time(class="form-control") }}</div>
+            <div class="col-md-6 mb-3">{{ form.end_time.label(class="form-label") }}{{ form.end_time(class="form-control") }}</div>
+        </div>
+        <div class="mb-3">
+            {{ form.affected_services.label(class="form-label") }}
+            <div class="form-control bg-transparent" style="height: auto; max-height: 200px; overflow-y: auto;">
+                {% if form.affected_services.choices %}
+                    {% for value, label in form.affected_services.choices %}
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="affected_services" value="{{ value }}" id="service-{{ value }}" {% if form.affected_services.data and value in form.affected_services.data %}checked{% endif %}>
+                        <label class="form-check-label" for="service-{{ value }}">
+                            {{ label }}
+                        </label>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted mb-0">No services available. Add a service first.</p>
+                {% endif %}
+            </div>
+            {% if form.affected_services.description %}<div class="form-text">{{ form.affected_services.description }}</div>{% endif %}
+        </div>
+        {{ form.submit(class="btn btn-primary") }}
+    </form>
+</div>
+
+<div class="glass-card">
+    <h4 class="mb-3">Scheduled & Recent Maintenances</h4>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Affected Services</th>
+                    <th>Starts</th>
+                    <th>Ends</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for maint in maintenances %}
+                <tr>
+                    <td>{{ maint.title }}</td>
+                    <td>
+                        {% for service_name in maint.affected_service_names %}
+                            <span class="badge bg-secondary">{{ service_name }}</span>
+                        {% else %}
+                            <span class="text-muted small">None</span>
+                        {% endfor %}
+                    </td>
+                    <td>{{ maint.start_time.strftime('%Y-%m-%d %H:%M') if maint.start_time else '' }}</td>
+                    <td>{{ maint.end_time.strftime('%Y-%m-%d %H:%M') if maint.end_time else '' }}</td>
+                    <td>
+                        {# <a href="{{ url_for('main.admin_edit_maintenance', maint_id=maint.id) }}" class="btn btn-secondary btn-sm">Edit</a> #}
+                        <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteModal" data-id="{{ maint.id }}" data-name="{{ maint.title }}" data-type="maintenance">Delete</button>
+                    </td>
+                </tr>
+            {% else %}
+                <tr><td colspan="5" class="text-center text-muted">No maintenance scheduled.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% include 'admin/_delete_modal.html' %}
+{% endblock %}
+
+{% block scripts %}
+{% include 'admin/_delete_modal_script.html' %}
+{% endblock %}

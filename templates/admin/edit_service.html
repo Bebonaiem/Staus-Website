@@ -1,0 +1,28 @@
+{% extends "admin/_layout.html" %}
+{% block title %}Edit Service - {{ service.name }}{% endblock %}
+{% block admin_content %}
+<div class="card">
+    <div class="card-header">
+        <h4>Edit Service: {{ service.name }}</h4>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('main.admin_edit_service', service_id=service.id) }}" novalidate>
+            {{ form.hidden_tag() }}
+            <div class="mb-3">
+                {{ form.name.label(class="form-label") }}
+                {{ form.name(class="form-control") }}
+            </div>
+            <div class="mb-3">
+                {{ form.url.label(class="form-label") }}
+                {{ form.url(class="form-control") }}
+            </div>
+            <div class="mb-3">
+                {{ form.icon.label(class="form-label") }}
+                {{ form.icon(class="form-control") }}
+            </div>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+            <a href="{{ url_for('main.admin_services') }}" class="btn btn-secondary">Cancel</a>
+        </form>
+    </div>
+</div>
+{% endblock %}
